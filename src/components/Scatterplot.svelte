@@ -1,0 +1,170 @@
+<script>
+  import { setContext } from 'svelte';
+  import { writable } from 'svelte/store';
+  import * as d3 from 'd3';
+  import XAxis from './chart/XAxis.svelte';
+  import YAxis from './chart/YAxis.svelte';
+  import Crosshair from './chart/Crosshair.svelte';
+  import Tooltip from './chart/Tooltip.svelte';
+
+  export let data;
+  export let selectedPlayer;
+
+  $: selectedPoint = data.find(({ player }) => player === selectedPlayer);
+
+  const textAccessor = d => d.player;
+  const xAccessor = d => +d.threePointFGMade;
+  const yAccessor = d => +d.minutesPlayed;
+
+  const formatTick = d3.format('.2s');
+  const formatLabel = d3.format(',.0f');
+
+  let hoveredPoint = null;
+
+  let width = 100;
+  $: height = 0.7 * width;
+
+  const margins = {
+    marginTop: 40,
+    marginRight: 55,
+    marginBottom: 65,
+    marginLeft: 55,
+  };
+
+  $: dimensions = {
+    width,
+    height,
+    ...margins,
+    boundedHeight: Math.max(
+      height - margins.marginTop - margins.marginBottom,
+      0,
+    ),
+    boundedWidth: Math.max(width - margins.marginLeft - margins.marginRight, 0),
+  };
+
+  $: xScale = d3
+    .scaleLinear()
+    .domain([d3.min(data, xAccessor), d3.max(data, xAccessor)])
+    .range([0, dimensions.boundedWidth])
+    .nice();
+
+  $: yScale = d3
+    .scaleLinear()
+    .domain([d3.min(data, yAccessor), d3.max(data, yAccessor)])
+    .range([dimensions.boundedHeight, 0])
+    .nice();
+
+  $: xAccessorScaled = d => xScale(xAccessor(d));
+  $: yAccessorScaled = d => yScale(yAccessor(d));
+
+  let currentDimensions = writable(dimensions);
+
+  $: {
+    currentDimensions.set(dimensions);
+  }
+
+  setContext('chart', {
+    dimensions: currentDimensions,
+  });
+
+  $: quadtreeInstance = d3
+    .quadtree()
+    .x(d => xScale(xAccessor(d)))
+    .y(d => yScale(yAccessor(d)))
+    .addAll(data);
+
+  const handleMouseMove = event => {
+    const [mouseX, mouseY] = d3.pointer(event);
+    hoveredPoint = quadtreeInstance.find(mouseX, mouseY);
+  };
+
+  const handleMouseLeave = () => {
+    hoveredPoint = null;
+  };
+</script>
+
+<div class="wrapper" bind:clientWidth={width} style="height: {height}px">
+  <svg class="chart" width={dimensions.width} height={dimensions.height}>
+    <g
+      transform={`translate(${dimensions.marginLeft}, ${dimensions.marginTop})`}
+    >
+      <XAxis
+        scale={xScale}
+        label="3-point field goals made"
+        {formatTick}
+        {hoveredPoint}
+      />
+
+      <YAxis
+        scale={yScale}
+        label="Minutes played"
+        {formatTick}
+        {hoveredPoint}
+      />
+
+      <rect
+        width={dimensions.boundedWidth}
+        height={dimensions.boundedHeight}
+        x={0}
+        y={0}
+        fill="#ffffff"
+        fill-opacity={0}
+        on:mousemove={handleMouseMove}
+        on:mouseleave={handleMouseLeave}
+      />
+
+      {#each data as d}
+        <circle
+          class="chart__point"
+          r="7"
+          cx={xAccessorScaled(d)}
+          cy={yAccessorScaled(d)}
+          fill={selectedPoint == d ? '#4cc9f0' : '#4427ca'}
+        />
+      {/each}
+
+      {#if hoveredPoint}
+        <Crosshair
+          xAccessorScaled={xAccessorScaled(hoveredPoint)}
+          yAccessorScaled={yAccessorScaled(hoveredPoint)}
+          xLabel={formatLabel(xAccessor(hoveredPoint))}
+          yLabel={formatLabel(yAccessor(hoveredPoint))}
+          boundedHeight={dimensions.boundedHeight}
+        />
+
+        <circle
+          class="chart__point"
+          r="7"
+          cx={xAccessorScaled(hoveredPoint)}
+          cy={yAccessorScaled(hoveredPoint)}
+          fill="#dc267f"
+        />
+      {/if}
+    </g>
+  </svg>
+
+  {#if hoveredPoint}
+    <Tooltip
+      xAccessorScaled={xAccessorScaled(hoveredPoint)}
+      yAccessorScaled={yAccessorScaled(hoveredPoint)}
+      tooltipText={textAccessor(hoveredPoint)}
+      marginLeft={margins.marginLeft}
+      marginTop={margins.marginTop}
+    />
+  {/if}
+</div>
+
+<style>
+  .wrapper {
+    position: relative;
+    font-size: 16px;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 40px;
+  }
+
+  .chart__point {
+    stroke: #ffffff;
+    stroke-width: 1px;
+  }
+</style>
