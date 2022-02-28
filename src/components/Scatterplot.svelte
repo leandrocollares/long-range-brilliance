@@ -15,6 +15,8 @@
   const textAccessor = d => d.player;
   const xAccessor = d => +d.threePointFGMade;
   const yAccessor = d => +d.minutesPlayed;
+  const xExtent = d3.extent(data, xAccessor);
+  const yExtent = d3.extent(data, yAccessor);
 
   const formatTick = d3.format('.2s');
   const formatLabel = d3.format(',.0f');
@@ -44,13 +46,13 @@
 
   $: xScale = d3
     .scaleLinear()
-    .domain([d3.min(data, xAccessor), d3.max(data, xAccessor)])
+    .domain(padExtent(xExtent, 0.1))
     .range([0, dimensions.boundedWidth])
-    .nice();
+    .nice(); 
 
   $: yScale = d3
     .scaleLinear()
-    .domain([d3.min(data, yAccessor), d3.max(data, yAccessor)])
+    .domain(padExtent(yExtent, 0.1))
     .range([dimensions.boundedHeight, 0])
     .nice();
 
@@ -81,6 +83,13 @@
   const handleMouseLeave = () => {
     hoveredPoint = null;
   };
+
+  const padExtent = ([min, max], paddingFactor) => {
+    const delta = Math.abs(max - min);
+    const padding = delta * paddingFactor;
+
+    return [min - padding, max + padding];
+  }
 </script>
 
 <div class="wrapper" bind:clientWidth={width} style="height: {height}px">
