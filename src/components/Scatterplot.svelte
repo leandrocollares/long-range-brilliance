@@ -21,6 +21,10 @@
   const formatTick = d3.format('.2s');
   const formatLabel = d3.format(',.0f');
 
+  const pointColor = '#4427ca';
+  const selectedPointColor = '#4cc9f0';
+  const hoveredPointColor = '#dc267f';
+
   let hoveredPoint = null;
 
   let width = 100;
@@ -48,7 +52,7 @@
     .scaleLinear()
     .domain(padExtent(xExtent, 0.1))
     .range([0, dimensions.boundedWidth])
-    .nice(); 
+    .nice();
 
   $: yScale = d3
     .scaleLinear()
@@ -89,7 +93,7 @@
     const padding = delta * paddingFactor;
 
     return [min - padding, max + padding];
-  }
+  };
 </script>
 
 <div class="wrapper" bind:clientWidth={width} style="height: {height}px">
@@ -128,9 +132,19 @@
           r="7"
           cx={xAccessorScaled(d)}
           cy={yAccessorScaled(d)}
-          fill={selectedPoint == d ? '#4cc9f0' : '#4427ca'}
+          fill={pointColor}
         />
       {/each}
+
+      {#if selectedPoint}
+        <circle
+          class="chart__point"
+          r="7"
+          cx={xAccessorScaled(selectedPoint)}
+          cy={yAccessorScaled(selectedPoint)}
+          fill={selectedPointColor}
+        />
+      {/if}
 
       {#if hoveredPoint}
         <Crosshair
@@ -146,7 +160,7 @@
           r="7"
           cx={xAccessorScaled(hoveredPoint)}
           cy={yAccessorScaled(hoveredPoint)}
-          fill="#dc267f"
+          fill={hoveredPointColor}
         />
       {/if}
     </g>
